@@ -1,14 +1,12 @@
 var prog_detector = null;
 
 $(document).ready(function () {
-    prog_detector = new ProgramDetector();
-    console.log("Current state of program detection is: " + prog_detector.isDetectionEnabled());
+    prog_detector = new ProgramDetector("test_video", "test_canvas");
 
-    prog_detector.toggleDetection();
-    console.log("Current state of program detection is: " + prog_detector.isDetectionEnabled());
-
+    /* begin - test code */
     program = new Program(constants.CNN, new Segment("seg1.ts", 2), new Segment("seg2.ts", 2), "some.jpg");
     console.log(program.type);
+    /* end - test code */
 
     // bootstrap
     //  subscribing to the HLS.js events and then calling the prog_detector's handler
@@ -23,4 +21,10 @@ function PlaySegmentChanged(){
 
     // TODO: call the prog_detector's specific function..for PC to decide
     // Example: prog_detector.playSegmentChanged();
+}
+
+function onToggleProgramDetection(){
+    console.log("Current state of program detection is: " + prog_detector.isDetectionEnabled());
+    prog_detector.toggleDetection();
+    console.log("Current state of program detection is: " + prog_detector.isDetectionEnabled());
 }

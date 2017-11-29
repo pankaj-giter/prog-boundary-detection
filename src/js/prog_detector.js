@@ -13,18 +13,43 @@ JS Module for Program Boundary Detection (that relies on Visual Recognition)
  */
 
 class ProgramDetector {
-    constructor() {
+    constructor(video_el_id, canvas_el_id) {
        this._detectionEnabled = false;
+       this._screenshotTimer = null;
+       this._video_el = document.getElementById(video_el_id);
+       this._canvas_el = document.getElementById(canvas_el_id);
+
+       console.log("Initializing Program Detector...");
+       console.log("Current state of program detection is: " + this.isDetectionEnabled());
     }
     isDetectionEnabled() {
         return this._detectionEnabled;
     }
     toggleDetection() {
+        console.log("Current state of program detection is: " + this.isDetectionEnabled());
+
         this._detectionEnabled = !this._detectionEnabled;
+        if(this._detectionEnabled){
+            console.log("Enabling program detection");
+            this._screenshotTimer = setInterval(this.detectProgram.bind(this), 2000);
+        } else {
+            console.log("Disabling program detection");
+            clearInterval(this._screenshotTimer);
+        }
+
+        console.log("Current state of program detection is: " + this.isDetectionEnabled());
     }
     playSegmentChanged(){
         console.log("Event fired from the HLS.js stating the segment that is currently playing");
         // TODO: take screenshot and then send to the AWS API
+    }
+    detectProgram(){
+        var canvas = this._canvas_el;
+        var video = this._video_el;
+        var ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        var dataUri = canvas.toDataURL("image/jpeg");
+        console.log(dataUri);
     }
 }
 
