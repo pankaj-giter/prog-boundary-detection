@@ -12,6 +12,8 @@ JS Module for Program Boundary Detection (that relies on Visual Recognition)
         includes info of start and end segment name/url and type of program (enum of 'CNN' and 'non-CNN')
  */
 
+var image_recognition_url_template = "http://localhost:8000/tech-jam/";
+
 class ProgramDetector {
     constructor(video_el_id, canvas_el_id) {
        this._detectionEnabled = false;
@@ -20,7 +22,7 @@ class ProgramDetector {
        this._canvas_el = document.getElementById(canvas_el_id);
        this._previousProgram = null;
        this._currentProgram = null;
-       this._program_changed_listeners = [];
+       this._program_detection_in_progress = false;
 
        console.log("Initializing the Program Detector module...");
        console.log("Current state of program detection is: " + this.isDetectionEnabled());
@@ -40,60 +42,87 @@ class ProgramDetector {
         var ctx = canvas.getContext("2d");
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         var dataUri = canvas.toDataURL("image/jpeg");
-        console.log(dataUri);
         return dataUri;
+    }
+    fromImageDataUriToBinary(imageDataUri){
+        // imageDataUri is of the form data:image/jpeg;base64,/9j/4AAQSkZJ...
+        var parts = imageDataUri.split(";base64,");
+        //console.log(parts[0]);
+        //console.log(parts[1]);
+
+        // https://developer.mozilla.org/en-US/docs/Web/API/WindowBase64/Base64_encoding_and_decoding
+        return atob(parts[1]);
     }
     detectProgramOfSegment(segment){
         var _this = this;
+        // TODO: change file extension from .ts to .jpeg
+        var image_recognition_url = image_recognition_url_template + segment.url.substring(segment.url.lastIndexOf("/") + 1);
         var imageDataUri = this.getVideoScreenshot();
-        var jqxhr = $.ajax({
+        console.debug("Following is screenshot of segment %s", segment.url);
+        console.debug(imageDataUri);
+
+        $.ajax({
             method: "POST",
-            url: "http://localhost:63342/some-url/end-point",
+            url: image_recognition_url,
             data: imageDataUri
         })
-            .done(function(xhr) { _this.onScreenshotAnalysisComplete(xhr, segment, imageDataUri) })
-            .fail(function(xhr) { _this.onScreenshotAnalysisFailed(xhr, segment, imageDataUri) });
-        // TODO: might need to post binary instead of base64 to server
-        // TODO: XHR requires CORS support from remote server
+            .done(function(data, textStatus, jqXHR) {
+                _this.onScreenshotAnalysisComplete(data, textStatus, jqXHR, segment, imageDataUri) })
+            .fail(function(jqXHR, textStatus, errorThrown) {
+                _this.onScreenshotAnalysisFailed(jqXHR, textStatus, errorThrown, segment, imageDataUri) })
+            .always(function(){
+                _this._program_detection_in_progress = false;
+            })
     }
-    onScreenshotAnalysisComplete(xhr, segment, imageDataUri){
-        console.log(xhr, segment);
-        console.log(xhr.getAllResponseHeaders());
+    onScreenshotAnalysisComplete(data, textStatus, jqXHR, segment, imageDataUri){
+        console.debug(jqXHR, segment);
+        console.debug(jqXHR.getAllResponseHeaders());
 
-        // TODO: read response to figure out the type of detected program
-        var detectedProgram = this.readProgramFromResponse();
-        console.log("Detected program " + detectedProgram + " for screenshot");
+        // read response to figure out the type of detected program
+        var detectedProgram = this.readProgramFromResponse(jqXHR);
+        console.log("%cDetected program %s for screenshot of segment %s", "color: blue, font-size: large", detectedProgram, segment.url);
         this.onScreenshotProgramDetectionComplete(detectedProgram, segment, imageDataUri);
     }
-    onScreenshotAnalysisFailed(xhr, segment, imageDataUri){
-        console.log(xhr, segment);
-        console.log(xhr.getAllResponseHeaders());
-
-        // TODO: remove this temporary code
-        this.onScreenshotAnalysisComplete(xhr, segment, imageDataUri);
+    onScreenshotAnalysisFailed(jqXHR, textStatus, errorThrown, segment, imageDataUri){
+        console.debug(jqXHR, segment);
+        console.debug(jqXHR.getAllResponseHeaders());
     }
-    readProgramFromResponse(){
-        // TODO: temporary code till I read the actual response and decipher the type of program
-        var r = Math.random();
-        if (r < 0.5 ) {
-            return constants.CNN;
+    readProgramFromResponse(jqXHR){
+        var program = jqXHR.getResponseHeader("Akamai-Program-Detection");
+        console.debug("Detected program returned back from backend server is '" + program + "'");
+        if (program){
+           if (program.startsWith("CNN")){
+               return constants.CNN;
+           }
+        }
+        else{
+            console.warn("No detected program was returned in response from backend server");
+            return constants.indeterminate;
         }
         return constants.non_CNN;
     }
     onScreenshotProgramDetectionComplete(program_type, segment, imageDataUri){
         // check if we don't have any state, i.e. this is the first ever program detected
         if(this._currentProgram == null){
-            console.log("Assigning current program");
+            console.debug("Assigning current program");
             this._currentProgram = new Program(program_type, segment, segment, imageDataUri);
+
+            // fire an event stating the 'program' that has been detected
+            $(document).trigger("program_detector.program_detected_event", this._currentProgram);
         }
+
         // we have a program, so let's check if an identical program to our current program has been detected
-        else if(this._currentProgram != null && this._currentProgram.type == program_type){
-            console.log("updating end_segment of current program");
+        else if(this._currentProgram != null && (this._currentProgram.type == program_type || program_type == constants.indeterminate)){
+            console.debug("updating end_segment of current program");
             this._currentProgram.end_segment = segment;
+
+            // fire an event stating the 'program' that has been detected
+            $(document).trigger("program_detector.program_detected_event", this._currentProgram);
         }
+
         // we have a program, so let's check if a program different than current program has been detected
         else if(this._currentProgram != null && this._currentProgram.type != program_type){
-            console.log("program change detected");
+            console.debug("program change detected");
             this._previousProgram = this._currentProgram;
             this._currentProgram = new Program(program_type, segment, segment, imageDataUri);
 
@@ -106,6 +135,9 @@ class ProgramDetector {
     /* begin - events */
     subscribeToProgramChangedEvent(listener){
         $(document).on("program_detector.program_changed_event", listener);
+    }
+    subscribeToProgramDetectedEvent(listener){
+        $(document).on("program_detector.program_detected_event", listener);
     }
     /* end - events */
 
@@ -123,19 +155,27 @@ class ProgramDetector {
         this._detectionEnabled = !this._detectionEnabled;
 
         // NOTE: this will need to be removed so that we don't rely on a timer, rather events fired from HLS.JS player
+        /*
         if(this._detectionEnabled){
             this._enableProgramDetection();
         } else {
             this._disableProgramDetection();
         }
+        */
 
         console.log("Current state of program detection is: " + this.isDetectionEnabled());
     }
     playSegmentChanged(segment){
-        console.log("Event fired from the HLS.js stating the segment that is currently playing");
+        console.debug("Event fired from the HLS.js stating the segment that is currently playing");
 
         // take screenshot and then send to the AWS API
         if (this._detectionEnabled){
+
+            if(this._program_detection_in_progress){
+                console.log("%cSkipping program detection for segment %s as there is an outstanding detection", "color:darkmagenta", segment.url);
+                return;
+            }
+            this._program_detection_in_progress = true;
             this.detectProgramOfSegment(segment);
         }
     }
@@ -198,6 +238,7 @@ class Constants {
     constructor(){
         this.CNN = "CNN";
         this.non_CNN = "non-CNN";
+        this.indeterminate = "indeterminate";
     }
 }
 var constants = new Constants();

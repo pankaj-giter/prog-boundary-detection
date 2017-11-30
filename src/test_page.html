@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Hello</title>
+    <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="//cdn.jsdelivr.net/hls.js/latest/hls.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            playHLS();
+        });
+        function playHLS(){
+            var video = document.getElementById("test_video");
+            var srcHls = "http://mcdevpmd.edgesuite.net/nocache/nopoc/pchaudha/demo/techjam2017/hls_playlist1_rendition3.m3u8";
+            if(Hls.isSupported()) {
+                var hls = Player.HLS;
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+                    hls.loadSource(srcHls);
+                    hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+                        video.play();
+                    });
+                });
+            }else{
+                console.log("Browser does NOT support MediaSourceExtensions !");
+            }
+        }
+        var Player = { HLS: new Hls() };
+        function getVideoScreenshot() {
+            var canvas = document.getElementById("test_canvas");
+            var video = document.getElementById("test_video");
+            var ctx = canvas.getContext("2d");
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            console.info("info");
+            console.log("log");
+            console.debug("debug");
+            console.warn("warn");
+            console.error("error");
+            console.group("group a");
+            console.log("hi there");
+            console.log("what's ur name");
+            console.groupEnd();
+        }
+        function getImageDataUri(){
+            var canvas = document.getElementById("test_canvas");
+            return canvas.toDataURL("image/jpeg");
+        }
+        function analyzeImage(){
+            var imageDataUri = getImageDataUri();
+            console.log(imageDataUri);
+
+            $.post(
+                "http://localhost:8000/tech-jam/cnn_image.jpg",imageDataUri, function(data, textStatus, jqXHR){
+                console.log("success");
+                console.log(data);
+                console.log(textStatus);
+                console.log(jqXHR.getAllResponseHeaders());
+                console.log(jqXHR.getResponseHeader("Akamai-Program-Detection"))
+            }).done(function(){
+                console.log("done");
+            }).fail(function(){
+                console.log("fail");
+            });
+        }
+    </script>
+</head>
+<body>
+<video id="test_video" controls>
+</video>
+<div>
+    <canvas id="test_canvas"></canvas>
+</div>
+<input type="button" onclick="getVideoScreenshot();" value="Get Video Screenshot"></input>
+<input type="button" onclick="analyzeImage();" value="Analyze Image"></input>
+</body>
+</html>

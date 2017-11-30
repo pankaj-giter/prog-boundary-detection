@@ -6,12 +6,16 @@ var clip_creator = null;
 */
 $(document).ready(function () {
     // initialize program detector
-    prog_detector = new ProgramDetector("test_video", "test_canvas");
+    prog_detector = new ProgramDetector("video", "canvas");
     prog_detector.subscribeToProgramChangedEvent(onProgramChanged);
+    prog_detector.subscribeToProgramDetectedEvent(onProgramDetected);
 
     // TODO: Venki: initialize the clip creator module
-    clip_creator = new ClipCreator();
-
+    clip_creator = new ClipCreator("div_clips_panel");
+    clip_creator.test(
+        "http://mcdevpmd.edgesuite.net/nocache/nopoc/pchaudha/demo/techjam2017/master_layer_00808.ts",
+        "http://mcdevpmd.edgesuite.net/nocache/nopoc/pchaudha/demo/techjam2017/master_layer_00810.ts",
+        10);
 
     // player.js (for use by Ambika)
     //  TODO: Ambika: init the HLS.js player and subscribe to its events
@@ -20,29 +24,28 @@ $(document).ready(function () {
 /*
 Event-handler that is triggered when the HLS.JS player begins playback of a new segment
  */
-function PlaySegmentChanged(){
-    console.log("TODO: Ambika: name of segment and it's properties");
+function PlaySegmentChanged(event, data){
+    console.log("PlaySegment Changed: " + data.frag.url + " " + data.frag.duration);
 
     // call the Program Detector informing of a new segment that is now playing
-    prog_detector.playSegmentChanged();
+    prog_detector.playSegmentChanged(new Segment(data.frag.url,data.frag.duration));
 }
 
 /*
 This is an event-handler that is triggered when the 'Toggle Program Detection' button on the HTML page is clicked
  */
+var _playSegmentChanged = PlaySegmentChanged;
 function onToggleProgramDetection(){
-    // PC: Though I have toggle program detection here directly, instead, we should
-    // be wiring up the event of segment changed from HLS.JS with the Program Detector
-
     console.log("Toggling program detection...");
     prog_detector.toggleDetection();
-    document.getElementById("prog_detection_status").textContent = prog_detector.isDetectionEnabled() ? "ON" : "OFF";
 
     if (prog_detector.isDetectionEnabled()){
-        // TODO: Ambika: wire up the HLS.JS play_segment_changed event with the program detector
+        // wire up the HLS.JS play_segment_changed event with the program detector
+        Player.HLS.on(Hls.Events.FRAG_CHANGED,_playSegmentChanged);
     }
     else{
-        // TODO: Ambika: undo the wiring of the HLS.JS play_segment_changed event with the program detector
+        // undo the wiring of the HLS.JS play_segment_changed event with the program detector
+        Player.HLS.off(Hls.Events.FRAG_CHANGED,_playSegmentChanged);
     }
 }
 
@@ -50,8 +53,12 @@ function onToggleProgramDetection(){
 Event-handler function that is triggered when a change in program is detected.
  */
 function onProgramChanged(sender, program){
-    console.log(sender);
+    console.log("%cProgram has changed", "color:blue");
     console.log(program);
 
-    // TODO: Venki: clip_creator.createClipForProgram(program);
+    clip_creator.createClipForProgram(program);
+}
+function onProgramDetected(sender, program){
+    console.log("%cProgram has been detected", "color:blue");
+    console.log(program);
 }
