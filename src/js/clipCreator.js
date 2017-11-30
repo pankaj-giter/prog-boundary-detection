@@ -15,12 +15,14 @@ class ClipCreator{
 
         var clipHLSPlaylistM3U8 = this._makePlaylist(program.start_segment.url, program.end_segment.url, parseInt(program.start_segment.extinf_duration));
 
-        this.postClipVideoM3U8(clipHLSPlaylistM3U8, "clip_" + (++this._clip_index) + ".m3u8");
-        this.createClipVideo(program);
+        var clipM3U8FileName = "clip_" + (++this._clip_index) + ".m3u8";
+        var clip_post_url = "http://localhost:8080/" + clipM3U8FileName;
+        this.postClipVideoM3U8(clipHLSPlaylistM3U8, clip_post_url);
+
+        this.createClipVideo(program, clip_post_url);
     }
 
-    postClipVideoM3U8(clipM3U8, clipM3U8FileName){
-        var clip_post_url = "http://localhost:8080/" + clipM3U8FileName;
+    postClipVideoM3U8(clipM3U8, clip_post_url){
         $.ajax({
             method: "POST",
             url: clip_post_url,
@@ -33,7 +35,7 @@ class ClipCreator{
                 console.log(textStatus + errorThrown);
             });
     }
-    createClipVideo(program) {
+    createClipVideo(program, clip_post_url) {
         var clip_container = document.createElement("div");
 
         var clip_title = document.createElement("span");
@@ -41,6 +43,8 @@ class ClipCreator{
 
         var video = document.createElement("video");
         video.setAttribute("poster", program.image_url);
+        video.setAttribute("controls", "true");
+        video.onclick = function(){ playClipVideo(video, clip_post_url)};
 
         clip_container.appendChild(clip_title);
         clip_container.appendChild(video);
@@ -52,8 +56,6 @@ class ClipCreator{
 
     /* Churn out the media segment between the start and end URL's */
     _makePlaylist(startURL,endURL,targetDuration){
-
-
         var playlist = [];
         playlist.push('#EXTM3U');
         playlist.push('#EXT-X-VERSION:4');
@@ -95,5 +97,21 @@ class ClipCreator{
         }
         playlist.push("#EXT-X-ENDLIST");
         return playlist.join("\r\n");
+    }
+}
+function playClipVideo(video, clip_post_url){
+    if(Hls.isSupported()) {
+        var hls = new Hls();
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+            console.debug("clip video and hls.js are now bound together !");
+            hls.loadSource(clip_post_url);
+            hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+                console.log("manifest loaded, found " + data.levels.length + " quality level");
+                video.play();
+            });
+        });
+    }else{
+        console.warn("Browser does NOT support MediaSourceExtensions !");
     }
 }
