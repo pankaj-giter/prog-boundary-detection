@@ -1,10 +1,14 @@
 // define global variables
 var prog_detector = null;
 var clip_creator = null;
+var current_program_detected_el = null
 
 /* main function to bootstrap the underlying objects
 */
 $(document).ready(function () {
+    // initialize the label element
+    current_program_detected_el = document.getElementById("current_detected_program");
+
     // initialize program detector
     prog_detector = new ProgramDetector("video", "canvas");
     prog_detector.subscribeToProgramChangedEvent(onProgramChanged);
@@ -12,10 +16,6 @@ $(document).ready(function () {
 
     // TODO: Venki: initialize the clip creator module
     clip_creator = new ClipCreator("div_clips_panel");
-    clip_creator.test(
-        "http://mcdevpmd.edgesuite.net/nocache/nopoc/pchaudha/demo/techjam2017/master_layer_00808.ts",
-        "http://mcdevpmd.edgesuite.net/nocache/nopoc/pchaudha/demo/techjam2017/master_layer_00810.ts",
-        10);
 
     // player.js (for use by Ambika)
     //  TODO: Ambika: init the HLS.js player and subscribe to its events
@@ -61,4 +61,5 @@ function onProgramChanged(sender, program){
 function onProgramDetected(sender, program){
     console.log("%cProgram has been detected", "color:blue");
     console.log(program);
+    current_program_detected_el.innerText = program.type;
 }

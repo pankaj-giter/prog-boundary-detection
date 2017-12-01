@@ -259,10 +259,17 @@ class BacSession:
                     returnStatus = "None"
                     print(type(fileContent))
                     
+                    """
                     if "CN" in fileContent:
                         returnStatus = "CNN"
                         if "BREAKING" in fileContent:
                             returnStatus = "CNN-Breaking news"
+                    """
+                    # PC: more fine tuning of the AI image recognition logic
+                    to_search = ["CN", "CNN", "BREAKING NEWS", "COMING UP", "ONLY ON", "DEVELOPING"]
+                    for s in to_search:
+                        if s in fileContent:
+                            returnStatus = "CNN"
                         
                     httpReq.incomingReqHdlr.send_header('Access-Control-Expose-Headers', 'Akamai-Program-Detection')
                     httpReq.incomingReqHdlr.send_header('Akamai-Program-Detection', returnStatus)
